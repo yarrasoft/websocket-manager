@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,12 @@ namespace WebSocketManager
     {
         private ConcurrentDictionary<string, WebSocket> _sockets = new ConcurrentDictionary<string, WebSocket>();
         private ConcurrentDictionary<string, List<string>> _groups = new ConcurrentDictionary<string, List<string>>();
+        private ILogger<WebSocketConnectionManager> logger;
+
+        public WebSocketConnectionManager(ILogger<WebSocketConnectionManager> logger)
+        {
+            this.logger = logger;
+        }
 
         public WebSocket GetSocketById(string id)
         {
@@ -74,9 +81,17 @@ namespace WebSocketManager
             WebSocket socket;
             _sockets.TryRemove(id, out socket);
 
-            await socket.CloseAsync(closeStatus: WebSocketCloseStatus.NormalClosure,
-                                    statusDescription: "Closed by the WebSocketManager",
-                                    cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                await socket.CloseAsync(closeStatus: WebSocketCloseStatus.NormalClosure,
+                                        statusDescription: "Closed by the WebSocketManager",
+                                        cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception x)
+            {
+                logger.LogError(x, "Error closing socket");
+            }
+
         }
 
         private string CreateConnectionId()

@@ -10,6 +10,7 @@ using WebSocketManager.Common;
 using System.IO;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 
 namespace WebSocketManager
 {
@@ -20,13 +21,14 @@ namespace WebSocketManager
          * KeepAlive artifacts
         */
         Timer pingTimer;
+        private ILogger<WebSocketHandler> logger;
         ConcurrentDictionary<string, DateTime> socketPingMap = new ConcurrentDictionary<string, DateTime>(2, 1);
 
 private async void OnPingTimer(object state)
         {
             if (SendPingMessages)
             {
-                TimeSpan timeoutPeriod = TimeSpan.FromSeconds(WebSocket.DefaultKeepAliveInterval.TotalSeconds * 30);
+                TimeSpan timeoutPeriod = TimeSpan.FromSeconds(WebSocket.DefaultKeepAliveInterval.TotalSeconds * 3);
 
                 foreach (var item in socketPingMap)
                 {
@@ -35,7 +37,7 @@ private async void OnPingTimer(object state)
                         var socket = WebSocketConnectionManager.GetSocketById(item.Key);
                         if (socket.State == WebSocketState.Open)
                         {
-                            await socket.CloseAsync(WebSocketCloseStatus.Empty, "timeout", CancellationToken.None);
+                            await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, "timeout", CancellationToken.None);                                
                         }
                     }
                     else
@@ -43,6 +45,22 @@ private async void OnPingTimer(object state)
                         await SendMessageAsync(item.Key, new TextMessage() { Data = "ping", MessageType = MessageType.Ping });
                     }
                 }
+            }
+        }
+
+        private async Task CloseSocketAsync(WebSocket socket, WebSocketCloseStatus status, string message, CancellationToken token)
+        {
+            try
+            {
+                await socket.CloseAsync(status, "", CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error closing socket");
+            }
+            finally
+            {
+                await OnDisconnected(socket);
             }
         }
 
@@ -59,10 +77,11 @@ private async void OnPingTimer(object state)
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        public WebSocketHandler(WebSocketConnectionManager webSocketConnectionManager)
+        public WebSocketHandler(WebSocketConnectionManager webSocketConnectionManager,ILogger<WebSocketHandler> logger)
         {
             WebSocketConnectionManager = webSocketConnectionManager;
             pingTimer = new Timer(OnPingTimer, null, WebSocket.DefaultKeepAliveInterval, WebSocket.DefaultKeepAliveInterval);
+            this.logger = logger;
         }
 
         public virtual async Task OnConnected(WebSocket socket)
@@ -82,6 +101,10 @@ private async void OnPingTimer(object state)
 
         public virtual async Task OnDisconnected(WebSocket socket)
         {
+            string id = WebSocketConnectionManager.GetId(socket);
+            DateTime temp;
+            socketPingMap.TryRemove(id, out temp);
+
             await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket)).ConfigureAwait(false);
         }
 

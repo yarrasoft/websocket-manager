@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace WebSocketManager
 {
@@ -13,11 +14,15 @@ namespace WebSocketManager
         private readonly RequestDelegate _next;
         private WebSocketHandler _webSocketHandler { get; set; }
 
+        private ILogger<WebSocketManagerMiddleware> _logger;
+
         public WebSocketManagerMiddleware(RequestDelegate next,
-                                          WebSocketHandler webSocketHandler)
+                                          WebSocketHandler webSocketHandler,
+                                          ILogger<WebSocketManagerMiddleware> logger)
         {
             _next = next;
             _webSocketHandler = webSocketHandler;
+            _logger = logger;
         }
 
         public async Task Invoke(HttpContext context)
@@ -46,9 +51,9 @@ namespace WebSocketManager
                         await _webSocketHandler.OnDisconnected(socket);
                     }
 
-                    catch (WebSocketException)
+                    catch (WebSocketException ex)
                     {
-                        throw; //let's not swallow any exception for now
+                        _logger.LogError(ex, "Error handling websocket response");
                     }
 
                     return;
