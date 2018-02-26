@@ -7,6 +7,7 @@ using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using WebSocketManager.Common;
+using System.IO;
 
 namespace WebSocketManager
 {
@@ -38,19 +39,25 @@ namespace WebSocketManager
             await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket)).ConfigureAwait(false);
         }
 
-        public async Task SendMessageAsync(WebSocket socket, Message message)
+        public async Task SendMessageAsync(WebSocket socket, WebSocketMessageType messageType, byte[] messageData)
         {
             if (socket.State != WebSocketState.Open)
                 return;
 
-            var serializedMessage = JsonConvert.SerializeObject(message, _jsonSerializerSettings);
-            var encodedMessage = Encoding.UTF8.GetBytes(serializedMessage);
-            await socket.SendAsync(buffer: new ArraySegment<byte>(array: encodedMessage,
+            await socket.SendAsync(buffer: new ArraySegment<byte>(array: messageData,
                                                                   offset: 0,
-                                                                  count: encodedMessage.Length),
-                                   messageType: WebSocketMessageType.Text,
+                                                                  count: messageData.Length),
+                                   messageType: messageType,
                                    endOfMessage: true,
                                    cancellationToken: CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task SendMessageAsync(WebSocket socket, Message message)
+        {
+            var serializedMessage = JsonConvert.SerializeObject(message, _jsonSerializerSettings);
+            var encodedMessage = Encoding.UTF8.GetBytes(serializedMessage);
+
+            await SendMessageAsync(socket, WebSocketMessageType.Text, encodedMessage);
         }
 
         public async Task SendMessageAsync(string socketId, Message message)
