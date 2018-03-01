@@ -10,7 +10,7 @@ namespace WebSocketManager.Tests
 
         public WebSocketConnectionManagerTests()
         {
-            _manager = new WebSocketConnectionManager();
+            _manager = new WebSocketConnectionManager(null);
         }
 
         public class GetSocketById : WebSocketConnectionManagerTests

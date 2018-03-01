@@ -42,7 +42,7 @@ private async void OnPingTimer(object state)
                     }
                     else
                     {
-                        await SendMessageAsync(item.Key, new TextMessage() { Data = "ping", MessageType = MessageType.Ping });
+                        await SendMessageAsync(item.Key, new Message() { Data = "ping", MessageType = MessageType.Ping });
                     }
                 }
             }
@@ -90,7 +90,7 @@ private async void OnPingTimer(object state)
 
             string id = WebSocketConnectionManager.GetId(socket);
 
-            await SendMessageAsync(socket, new TextMessage()
+            await SendMessageAsync(socket, new Message()
             {
                 MessageType = MessageType.ConnectionEvent,
                 Data = id,
@@ -107,27 +107,10 @@ private async void OnPingTimer(object state)
 
             await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket)).ConfigureAwait(false);
         }
-
-        public async Task SendMessageAsync<T>(WebSocket socket, Message<T> message)
+        public async Task SendMessageAsync(WebSocket socket, WebSocketMessageType messageType, byte[] messageData)
         {
             if (socket.State != WebSocketState.Open)
                 return;
-
-            byte[] messageData;
-
-            WebSocketMessageType messageType;
-
-            if (message.MessageType != MessageType.Binary)
-            {
-                var serializedMessage = JsonConvert.SerializeObject(message, _jsonSerializerSettings);
-                messageData = Encoding.UTF8.GetBytes(serializedMessage);
-                messageType = WebSocketMessageType.Text;
-            }
-            else
-            {
-                messageData = message.Data as byte[];
-                messageType = WebSocketMessageType.Binary;
-            }
 
             await socket.SendAsync(buffer: new ArraySegment<byte>(array: messageData,
                                                                   offset: 0,
@@ -136,13 +119,21 @@ private async void OnPingTimer(object state)
                                    endOfMessage: true,
                                    cancellationToken: CancellationToken.None).ConfigureAwait(false);
         }
-        
-        public async Task SendMessageAsync<T>(string socketId, Message<T> message)
+
+        public async Task SendMessageAsync(WebSocket socket, Message message)
+        {
+            var serializedMessage = JsonConvert.SerializeObject(message, _jsonSerializerSettings);
+            var encodedMessage = Encoding.UTF8.GetBytes(serializedMessage);
+
+            await SendMessageAsync(socket, WebSocketMessageType.Text, encodedMessage);
+        }
+
+        public async Task SendMessageAsync(string socketId, Message message)
         {
             await SendMessageAsync(WebSocketConnectionManager.GetSocketById(socketId), message).ConfigureAwait(false);
         }
 
-        public async Task SendMessageToAllAsync<T>(Message<T> message)
+        public async Task SendMessageToAllAsync(Message message)
         {
             foreach (var pair in WebSocketConnectionManager.GetAll())
             {
@@ -153,7 +144,7 @@ private async void OnPingTimer(object state)
 
         public async Task InvokeClientMethodAsync(string socketId, string methodName, object[] arguments)
         {
-            var message = new TextMessage()
+            var message = new Message()
             {
                 MessageType = MessageType.ClientMethodInvocation,
                 Data = JsonConvert.SerializeObject(new InvocationDescriptor()
@@ -175,7 +166,7 @@ private async void OnPingTimer(object state)
             }
         }
 
-        public async Task SendMessageToGroupAsync<T>(string groupID, Message<T> message)
+        public async Task SendMessageToGroupAsync(string groupID, Message message)
         {
             var sockets = WebSocketConnectionManager.GetAllFromGroup(groupID);
             if (sockets != null)
@@ -187,7 +178,7 @@ private async void OnPingTimer(object state)
             }
         }
 
-        public async Task SendMessageToGroupAsync<T>(string groupID, Message<T> message, string except)
+        public async Task SendMessageToGroupAsync(string groupID, Message message, string except)
         {
             var sockets = WebSocketConnectionManager.GetAllFromGroup(groupID);
             if (sockets != null)
@@ -238,7 +229,7 @@ private async void OnPingTimer(object state)
             {
                 case MessageType.ClientMethodInvocation:
 
-                    var textMessage = JsonConvert.DeserializeObject<TextMessage>(message);
+                    var textMessage = JsonConvert.DeserializeObject<Message>(message);
 
 
                     var invocationDescriptor = JsonConvert.DeserializeObject<InvocationDescriptor>(textMessage.Data);
@@ -246,7 +237,7 @@ private async void OnPingTimer(object state)
 
                     if (method == null)
                     {
-                        await SendMessageAsync(socket, new TextMessage()
+                        await SendMessageAsync(socket, new Message()
                         {
                             MessageType = MessageType.Text,
                             Data = $"Cannot find method {invocationDescriptor.MethodName}"
@@ -260,7 +251,7 @@ private async void OnPingTimer(object state)
                     }
                     catch (TargetParameterCountException)
                     {
-                        await SendMessageAsync(socket, new TextMessage()
+                        await SendMessageAsync(socket, new Message()
                         {
                             MessageType = MessageType.Text,
                             Data = $"The {invocationDescriptor.MethodName} method does not take {invocationDescriptor.Arguments.Length} parameters!"
@@ -269,7 +260,7 @@ private async void OnPingTimer(object state)
 
                     catch (ArgumentException)
                     {
-                        await SendMessageAsync(socket, new TextMessage()
+                        await SendMessageAsync(socket, new Message()
                         {
                             MessageType = MessageType.Text,
                             Data = $"The {invocationDescriptor.MethodName} method takes different arguments!"
@@ -287,7 +278,6 @@ private async void OnPingTimer(object state)
 
                 case MessageType.Text:
                 case MessageType.ConnectionEvent:
-                case MessageType.Binary:
                 default:
                     this.OnMessage(messageObject);
                     break;
