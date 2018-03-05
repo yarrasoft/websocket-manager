@@ -24,7 +24,7 @@ namespace WebSocketManager
         private ILogger<WebSocketHandler> logger;
         ConcurrentDictionary<string, DateTime> socketPingMap = new ConcurrentDictionary<string, DateTime>(2, 1);
 
-private async void OnPingTimer(object state)
+        private async void OnPingTimer(object state)
         {
             if (SendPingMessages)
             {
@@ -37,12 +37,15 @@ private async void OnPingTimer(object state)
                         var socket = WebSocketConnectionManager.GetSocketById(item.Key);
                         if (socket.State == WebSocketState.Open)
                         {
-                            await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, "timeout", CancellationToken.None);                                
+                            logger.LogInformation("Closing socket due to ping no ping response");
+
+                            await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, "timeout", CancellationToken.None);
                         }
                     }
                     else
                     {
-                        await SendMessageAsync(item.Key, new Message() { Data = "ping", MessageType = MessageType.Ping });
+                        await SendMessageAsync(item.Key, new Message() { Data = "ping", MessageType = MessageType.Text, Brief = "ping" });
+                        logger.LogDebug("Sending WebSocket ping");
                     }
                 }
             }
@@ -52,7 +55,7 @@ private async void OnPingTimer(object state)
         {
             try
             {
-                await socket.CloseAsync(status, "", CancellationToken.None);
+                await socket.CloseAsync(status, message, token);
             }
             catch (Exception ex)
             {
@@ -77,7 +80,7 @@ private async void OnPingTimer(object state)
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        public WebSocketHandler(WebSocketConnectionManager webSocketConnectionManager,ILogger<WebSocketHandler> logger)
+        public WebSocketHandler(WebSocketConnectionManager webSocketConnectionManager, ILogger<WebSocketHandler> logger)
         {
             WebSocketConnectionManager = webSocketConnectionManager;
             pingTimer = new Timer(OnPingTimer, null, WebSocket.DefaultKeepAliveInterval, WebSocket.DefaultKeepAliveInterval);
@@ -92,7 +95,8 @@ private async void OnPingTimer(object state)
 
             await SendMessageAsync(socket, new Message()
             {
-                MessageType = MessageType.ConnectionEvent,
+                MessageType = MessageType.Text,
+                Brief = "connect",
                 Data = id,
             }).ConfigureAwait(false);
 
@@ -107,17 +111,36 @@ private async void OnPingTimer(object state)
 
             await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket)).ConfigureAwait(false);
         }
+
+
+        ConcurrentQueue<Tuple<WebSocket, WebSocketMessageType, byte[]>> sendQueue = new ConcurrentQueue<Tuple<WebSocket, WebSocketMessageType, byte[]>>();
+
         public async Task SendMessageAsync(WebSocket socket, WebSocketMessageType messageType, byte[] messageData)
         {
+
             if (socket.State != WebSocketState.Open)
                 return;
 
-            await socket.SendAsync(buffer: new ArraySegment<byte>(array: messageData,
-                                                                  offset: 0,
-                                                                  count: messageData.Length),
-                                   messageType: messageType,
-                                   endOfMessage: true,
-                                   cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            sendQueue.Enqueue(new Tuple<WebSocket, WebSocketMessageType, byte[]>(socket, messageType, messageData));
+            await Task.Run((Action)SendmessagesInQueue);
+        }
+
+        protected void SendmessagesInQueue()
+        {
+            while (!sendQueue.IsEmpty)
+            {
+                Tuple<WebSocket, WebSocketMessageType, byte[]> item;
+
+                if (sendQueue.TryDequeue(out item))
+                {
+                    item.Item1.SendAsync(buffer: new ArraySegment<byte>(array: item.Item3,
+                                                              offset: 0,
+                                                              count: item.Item3.Length),
+                               messageType: item.Item2,
+                               endOfMessage: true,
+                               cancellationToken: CancellationToken.None).Wait();
+                }
+            }
         }
 
         public async Task SendMessageAsync(WebSocket socket, Message message)
@@ -185,7 +208,7 @@ private async void OnPingTimer(object state)
             {
                 foreach (var id in sockets)
                 {
-                    if(id != except)
+                    if (id != except)
                         await SendMessageAsync(id, message);
                 }
             }
@@ -206,11 +229,11 @@ private async void OnPingTimer(object state)
         public async Task InvokeClientMethodToGroupAsync(string groupID, string methodName, string except, params object[] arguments)
         {
             var sockets = WebSocketConnectionManager.GetAllFromGroup(groupID);
-            if(sockets != null)
+            if (sockets != null)
             {
                 foreach (var id in sockets)
                 {
-                    if(id != except)
+                    if (id != except)
                         await InvokeClientMethodAsync(id, methodName, arguments);
                 }
             }
@@ -268,16 +291,23 @@ private async void OnPingTimer(object state)
                     }
                     break;
 
-                case MessageType.Ping:
-                    //send pong
-                    break;
-
-                case MessageType.Pong:
-                    this.OnPong(socket);
-                    break;
 
                 case MessageType.Text:
-                case MessageType.ConnectionEvent:
+
+                    switch (messageObject.Brief)
+                    {
+                        case MessageBriefConstants.Ping:
+                            //server shouldn't send pong
+                            break;
+                        case MessageBriefConstants.Pong:
+                            this.OnPong(socket);
+                            break;
+                        case MessageBriefConstants.Disconnect:
+                            await CloseSocketAsync(socket, WebSocketCloseStatus.NormalClosure, MessageBriefConstants.Disconnect, CancellationToken.None);
+                            break;
+                    }
+                    break;
+
                 default:
                     this.OnMessage(messageObject);
                     break;
