@@ -133,12 +133,20 @@ namespace WebSocketManager
 
                 if (sendQueue.TryDequeue(out item))
                 {
-                    item.Item1.SendAsync(buffer: new ArraySegment<byte>(array: item.Item3,
-                                                              offset: 0,
-                                                              count: item.Item3.Length),
-                               messageType: item.Item2,
-                               endOfMessage: true,
-                               cancellationToken: CancellationToken.None).Wait();
+                    try
+                    {
+                        item.Item1.SendAsync(buffer: new ArraySegment<byte>(array: item.Item3,
+                                          offset: 0,
+                                          count: item.Item3.Length),
+                                          messageType: item.Item2,
+                                          endOfMessage: true,
+                                          cancellationToken: CancellationToken.None).Wait();
+
+                    }
+                    catch (Exception x)
+                    {
+                        logger.LogError(x, "Error sending message via socket. Message dropped");
+                    }
                 }
             }
         }
