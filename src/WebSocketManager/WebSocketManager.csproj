@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <ReleaseVersion>0.2</ReleaseVersion>
+    <AssemblyVersion>18.5.18.1619</AssemblyVersion>
+    <FileVersion>18.5.18.1619</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

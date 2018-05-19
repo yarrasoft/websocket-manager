@@ -39,7 +39,7 @@ namespace WebSocketManager
                         {
                             logger.LogInformation("Closing socket due to ping no ping response");
 
-                            await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, "timeout", CancellationToken.None);
+                            await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, null, CancellationToken.None);
                         }
                     }
                     else
@@ -55,6 +55,10 @@ namespace WebSocketManager
         {
             try
             {
+                if (status == WebSocketCloseStatus.Empty)
+                {
+                    message = null;
+                }
                 await socket.CloseAsync(status, message, token);
             }
             catch (Exception ex)
