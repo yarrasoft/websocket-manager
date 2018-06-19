@@ -37,7 +37,7 @@ namespace WebSocketManager
                         var socket = WebSocketConnectionManager.GetSocketById(item.Key);
                         if (socket.State == WebSocketState.Open)
                         {
-                            logger.LogInformation("Closing socket due to ping no ping response");
+                            logger.LogInformation("Closing socket due to ping no ping response. LastPongResponseTime: {LastPongResponseTime}", item.Value);
 
                             await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, null, CancellationToken.None);
                         }
@@ -72,7 +72,7 @@ namespace WebSocketManager
         }
 
         /// <summary>
-        /// If true, will send custom "ping" messages which must be answered with an InvokationMessage of type ping and the provided key
+        /// If true, will send custom "ping" messages which must be answered with a ping message
         /// Uses WebSocket.DefaultKeepAliveInterval as ping period
         /// Sockets which have not responded to 3 pings will be disconnected
         /// </summary>
@@ -251,11 +251,6 @@ namespace WebSocketManager
             }
         }
 
-        public void Pong(string key)
-        {
-
-        }
-
         public async Task ReceiveAsync(WebSocket socket, WebSocketReceiveResult result, string message)
         {
             var messageObject = JsonConvert.DeserializeObject<Message>(message);
@@ -333,6 +328,7 @@ namespace WebSocketManager
 
         private void OnPong(WebSocket socket)
         {
+            logger.LogDebug("Pong message received");
             string id = WebSocketConnectionManager.GetId(socket);
             socketPingMap[id] = DateTime.Now;
         }
