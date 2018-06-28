@@ -93,6 +93,7 @@ namespace WebSocketManager
 
         public virtual async Task OnConnected(WebSocket socket)
         {
+            logger.LogDebug("Start method. Method: {Method}", nameof(OnConnected));
             WebSocketConnectionManager.AddSocket(socket);
 
             string id = WebSocketConnectionManager.GetId(socket);
@@ -102,9 +103,11 @@ namespace WebSocketManager
                 MessageType = MessageType.Text,
                 Brief = "connect",
                 Data = id,
-            }).ConfigureAwait(false);
+            });
 
             socketPingMap.GetOrAdd(id, DateTime.Now);
+            logger.LogDebug("Finish method. Method: {Method}", nameof(OnConnected));
+
         }
 
         public virtual async Task OnDisconnected(WebSocket socket)
