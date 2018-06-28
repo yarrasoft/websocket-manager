@@ -303,7 +303,7 @@ namespace WebSocketManager
 
 
                 case MessageType.Text:
-
+                    logger.LogDebug("Text message received. Brief: {Brief}, Data: {Data}", messageObject.Brief, messageObject.Data);
                     switch (messageObject.Brief)
                     {
                         case MessageBriefConstants.Ping:
