@@ -45,7 +45,7 @@ namespace WebSocketManager
                     else
                     {
                         await SendMessageAsync(item.Key, new Message() { Data = "ping", MessageType = MessageType.Text, Brief = "ping" });
-                        logger.LogDebug("Sending WebSocket ping");
+                        logger.LogDebug("Sending websocket ping");
                     }
                 }
             }
@@ -53,6 +53,8 @@ namespace WebSocketManager
 
         private async Task CloseSocketAsync(WebSocket socket, WebSocketCloseStatus status, string message, CancellationToken token)
         {
+
+            logger.LogDebug("Closing websocket");
             try
             {
                 if (status == WebSocketCloseStatus.Empty)
@@ -116,7 +118,7 @@ namespace WebSocketManager
             DateTime temp;
             socketPingMap.TryRemove(id, out temp);
 
-            await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket)).ConfigureAwait(false);
+            await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket));
         }
 
 
@@ -168,7 +170,7 @@ namespace WebSocketManager
 
         public async Task SendMessageAsync(string socketId, Message message)
         {
-            await SendMessageAsync(WebSocketConnectionManager.GetSocketById(socketId), message).ConfigureAwait(false);
+            await SendMessageAsync(WebSocketConnectionManager.GetSocketById(socketId), message);
         }
 
         public async Task SendMessageToAllAsync(Message message)
@@ -176,7 +178,7 @@ namespace WebSocketManager
             foreach (var pair in WebSocketConnectionManager.GetAll())
             {
                 if (pair.Value.State == WebSocketState.Open)
-                    await SendMessageAsync(pair.Value, message).ConfigureAwait(false);
+                    await SendMessageAsync(pair.Value, message);
             }
         }
 
@@ -192,7 +194,7 @@ namespace WebSocketManager
                 }, _jsonSerializerSettings)
             };
 
-            await SendMessageAsync(socketId, message).ConfigureAwait(false);
+            await SendMessageAsync(socketId, message);
         }
 
         public async Task InvokeClientMethodToAllAsync(string methodName, params object[] arguments)
@@ -200,7 +202,7 @@ namespace WebSocketManager
             foreach (var pair in WebSocketConnectionManager.GetAll())
             {
                 if (pair.Value.State == WebSocketState.Open)
-                    await InvokeClientMethodAsync(pair.Key, methodName, arguments).ConfigureAwait(false);
+                    await InvokeClientMethodAsync(pair.Key, methodName, arguments);
             }
         }
 
@@ -274,7 +276,7 @@ namespace WebSocketManager
                         {
                             MessageType = MessageType.Text,
                             Data = $"Cannot find method {invocationDescriptor.MethodName}"
-                        }).ConfigureAwait(false);
+                        });
                         return;
                     }
 
@@ -288,7 +290,7 @@ namespace WebSocketManager
                         {
                             MessageType = MessageType.Text,
                             Data = $"The {invocationDescriptor.MethodName} method does not take {invocationDescriptor.Arguments.Length} parameters!"
-                        }).ConfigureAwait(false);
+                        });
                     }
 
                     catch (ArgumentException)
@@ -297,7 +299,7 @@ namespace WebSocketManager
                         {
                             MessageType = MessageType.Text,
                             Data = $"The {invocationDescriptor.MethodName} method takes different arguments!"
-                        }).ConfigureAwait(false);
+                        });
                     }
                     break;
 

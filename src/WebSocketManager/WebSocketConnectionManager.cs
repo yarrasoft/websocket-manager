@@ -85,7 +85,7 @@ namespace WebSocketManager
             {
                 await socket.CloseAsync(closeStatus: WebSocketCloseStatus.NormalClosure,
                                         statusDescription: "Closed by the WebSocketManager",
-                                        cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                                        cancellationToken: CancellationToken.None);
             }
             catch (Exception x)
             {

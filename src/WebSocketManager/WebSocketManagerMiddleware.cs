@@ -33,14 +33,14 @@ namespace WebSocketManager
                 return;
             }
 
-            var socket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
-            await _webSocketHandler.OnConnected(socket).ConfigureAwait(false);
+            var socket = await context.WebSockets.AcceptWebSocketAsync();
+            await _webSocketHandler.OnConnected(socket);
 
             await Receive(socket, async (result, serializedInvocationDescriptor) =>
             {
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    await _webSocketHandler.ReceiveAsync(socket, result, serializedInvocationDescriptor).ConfigureAwait(false);
+                    await _webSocketHandler.ReceiveAsync(socket, result, serializedInvocationDescriptor);
                     return;
                 }
 
@@ -73,7 +73,7 @@ namespace WebSocketManager
                 {
                     do
                     {
-                        result = await socket.ReceiveAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+                        result = await socket.ReceiveAsync(buffer, CancellationToken.None);
                         ms.Write(buffer.Array, buffer.Offset, result.Count);
                     }
                     while (!result.EndOfMessage);
@@ -82,7 +82,7 @@ namespace WebSocketManager
 
                     using (var reader = new StreamReader(ms, Encoding.UTF8))
                     {
-                        serializedInvocationDescriptor = await reader.ReadToEndAsync().ConfigureAwait(false);
+                        serializedInvocationDescriptor = await reader.ReadToEndAsync();
                     }
                 }
 
