@@ -22,6 +22,7 @@ namespace WebSocketManager
         */
         Timer pingTimer;
         private ILogger<WebSocketHandler> logger;
+        ConcurrentDictionary<string, DateTime> socketPongMap = new ConcurrentDictionary<string, DateTime>(2, 1);
         ConcurrentDictionary<string, DateTime> socketPingMap = new ConcurrentDictionary<string, DateTime>(2, 1);
 
         private async void OnPingTimer(object state)
@@ -30,7 +31,7 @@ namespace WebSocketManager
             {
                 TimeSpan timeoutPeriod = TimeSpan.FromSeconds(WebSocket.DefaultKeepAliveInterval.TotalSeconds * 3);
 
-                foreach (var item in socketPingMap)
+                foreach (var item in socketPongMap)
                 {
                     if (item.Value < DateTime.Now.Subtract(timeoutPeriod))
                     {
@@ -38,13 +39,18 @@ namespace WebSocketManager
                         if (socket.State == WebSocketState.Open)
                         {
                             logger.LogInformation("Closing socket due to ping no ping response. LastPongResponseTime: {LastPongResponseTime}", item.Value);
-
                             await CloseSocketAsync(socket, WebSocketCloseStatus.Empty, null, CancellationToken.None);
                         }
                     }
                     else
                     {
+
+                        if(socketPingMap[item.Key] > socketPongMap[item.Key])
+                        {
+                            logger.LogDebug("Sending ping without receiving corresponding pong");
+                        }
                         await SendMessageAsync(item.Key, new Message() { Data = "ping", MessageType = MessageType.Text, Brief = "ping" });
+                        socketPingMap[item.Key] = DateTime.Now;
                         logger.LogDebug("Sending websocket ping");
                     }
                 }
@@ -107,6 +113,7 @@ namespace WebSocketManager
                 Data = id,
             });
 
+            socketPongMap.GetOrAdd(id, DateTime.Now);
             socketPingMap.GetOrAdd(id, DateTime.Now);
             logger.LogDebug("Finish method. Method: {Method}", nameof(OnConnected));
 
@@ -116,8 +123,8 @@ namespace WebSocketManager
         {
             string id = WebSocketConnectionManager.GetId(socket);
             DateTime temp;
+            socketPongMap.TryRemove(id, out temp);
             socketPingMap.TryRemove(id, out temp);
-
             await WebSocketConnectionManager.RemoveSocket(WebSocketConnectionManager.GetId(socket));
         }
 
@@ -335,7 +342,9 @@ namespace WebSocketManager
         {
             logger.LogDebug("Pong message received");
             string id = WebSocketConnectionManager.GetId(socket);
-            socketPingMap[id] = DateTime.Now;
+            socketPongMap[id] = DateTime.Now;
+            var elapsed = socketPongMap[id].Subtract(socketPingMap[id]);
+            logger.LogDebug("PingPong latency. LatencyMs:{LatencyMs}", elapsed.TotalMilliseconds);
         }
 
         public void Dispose()
