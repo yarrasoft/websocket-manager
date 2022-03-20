@@ -14,6 +14,7 @@ namespace WebSocketManager.Common
     {
         Text = 1,
         ClientMethodInvocation = 2,
+        ConnectionEvent = 3,
     }
 
     public class Message

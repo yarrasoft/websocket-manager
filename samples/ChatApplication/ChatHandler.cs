@@ -1,4 +1,5 @@
-﻿using System.Net.WebSockets;
+﻿using Microsoft.Extensions.Logging;
+using System.Net.WebSockets;
 using System.Threading.Tasks;
 using WebSocketManager;
 using WebSocketManager.Common;
@@ -7,7 +8,7 @@ namespace ChatApplication
 {
     public class ChatHandler : WebSocketHandler
     {
-        public ChatHandler(WebSocketConnectionManager webSocketConnectionManager) : base(webSocketConnectionManager)
+        public ChatHandler(WebSocketConnectionManager webSocketConnectionManager, ILogger<ChatHandler> logger) : base(webSocketConnectionManager, logger)
         {
         }
 
