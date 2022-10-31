@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "WebSocketManager.Common": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:23026;http://localhost:23027"
+    }
+  }
+}
